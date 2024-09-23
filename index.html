@@ -19,6 +19,7 @@
             background: #fff; 
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); 
             border-radius: 8px; 
+            transition: transform 0.5s ease-in-out; 
         }
         .form-group { 
             margin-bottom: 15px; 
@@ -54,10 +55,16 @@
             background: #e9ecef; 
             border-radius: 4px; 
         }
+        .hidden { 
+            transform: translateX(-100%); 
+        }
+        canvas { 
+            margin-top: 20px; 
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" id="form-container">
         <h1>Train MNIST Model</h1>
         <div class="form-group">
             <label for="learning_rate">Learning Rate</label>
@@ -89,8 +96,13 @@
         <button onclick="trainModel()">Train Model</button>
         <div class="results" id="results"></div>
     </div>
+    <canvas id="accuracyChart" width="400" height="200"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         async function trainModel() {
+            const formContainer = document.getElementById('form-container');
+            formContainer.classList.add('hidden');
+
             const learningRate = document.getElementById('learning_rate').value;
             const activation = document.getElementById('activation').value;
             const regularization = document.getElementById('regularization').value;
@@ -109,12 +121,48 @@
                 })
             });
 
-            const result = await response.json();
-            document.getElementById('results').innerHTML = `
-                <h2>Training Results</h2>
-                <p>Accuracy: ${result.accuracy}</p>
-                <p>Validation Accuracy: ${result.val_accuracy}</p>
-            `;
+            if (response.ok) {
+                const result = await response.json();
+                document.getElementById('results').innerHTML = `
+                    <h2>Training Results</h2>
+                    <p>Accuracy: ${result.accuracy}</p>
+                    <p>Validation Accuracy: ${result.val_accuracy}</p>
+                `;
+
+                const ctx = document.getElementById('accuracyChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: Array.from({ length: result.accuracy.length }, (_, i) => i + 1),
+                        datasets: [
+                            {
+                                label: 'Training Accuracy',
+                                data: result.accuracy,
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 1,
+                                fill: false
+                            },
+                            {
+                                label: 'Validation Accuracy',
+                                data: result.val_accuracy,
+                                borderColor: 'rgba(153, 102, 255, 1)',
+                                borderWidth: 1,
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        scales: {
+                            x: { title: { display: true, text: 'Epoch' } },
+                            y: { title: { display: true, text: 'Accuracy' } }
+                        }
+                    }
+                });
+            } else {
+                console.error('Error:', response.statusText);
+            }
+
+            formContainer.classList.remove('hidden');
         }
     </script>
 </body>
