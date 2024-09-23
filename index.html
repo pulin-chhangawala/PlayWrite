@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MNIST Model Trainer</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f4f4f9; 
+            color: #333; 
+            margin: 0; 
+            padding: 0; 
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 50px auto; 
+            padding: 20px; 
+            background: #fff; 
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); 
+            border-radius: 8px; 
+        }
+        .form-group { 
+            margin-bottom: 15px; 
+        }
+        label { 
+            display: block; 
+            margin-bottom: 5px; 
+            font-weight: bold; 
+        }
+        input, select { 
+            width: 100%; 
+            padding: 10px; 
+            margin-top: 5px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            box-sizing: border-box; 
+        }
+        button { 
+            padding: 10px 20px; 
+            background-color: #007bff; 
+            color: #fff; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 16px; 
+        }
+        button:hover { 
+            background-color: #0056b3; 
+        }
+        .results { 
+            margin-top: 20px; 
+            padding: 10px; 
+            background: #e9ecef; 
+            border-radius: 4px; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Train MNIST Model</h1>
+        <div class="form-group">
+            <label for="learning_rate">Learning Rate</label>
+            <input type="number" id="learning_rate" step="0.001" value="0.001">
+        </div>
+        <div class="form-group">
+            <label for="activation">Activation Function</label>
+            <select id="activation">
+                <option value="relu">ReLU</option>
+                <option value="sigmoid">Sigmoid</option>
+                <option value="tanh">Tanh</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="regularization">Regularization</label>
+            <select id="regularization">
+                <option value="l2">L2</option>
+                <option value="l1">L1</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="reg_rate">Regularization Rate</label>
+            <input type="number" id="reg_rate" step="0.001" value="0.01">
+        </div>
+        <div class="form-group">
+            <label for="train_split">Training Data Split (%)</label>
+            <input type="number" id="train_split" step="0.01" value="0.8">
+        </div>
+        <button onclick="trainModel()">Train Model</button>
+        <div class="results" id="results"></div>
+    </div>
+    <script>
+        async function trainModel() {
+            const learningRate = document.getElementById('learning_rate').value;
+            const activation = document.getElementById('activation').value;
+            const regularization = document.getElementById('regularization').value;
+            const regRate = document.getElementById('reg_rate').value;
+            const trainSplit = document.getElementById('train_split').value;
+
+            const response = await fetch('/train', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    learning_rate: parseFloat(learningRate),
+                    activation: activation,
+                    regularization: regularization,
+                    reg_rate: parseFloat(regRate),
+                    train_split: parseFloat(trainSplit)
+                })
+            });
+
+            const result = await response.json();
+            document.getElementById('results').innerHTML = `
+                <h2>Training Results</h2>
+                <p>Accuracy: ${result.accuracy}</p>
+                <p>Validation Accuracy: ${result.val_accuracy}</p>
+            `;
+        }
+    </script>
+</body>
+</html>
