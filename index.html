@@ -7,19 +7,23 @@
     <style>
         body { 
             font-family: Arial, sans-serif; 
-            background-color: #f4f4f9; 
+            background-color: white; 
             color: #333; 
             margin: 0; 
             padding: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            height: 100vh; 
         }
         .container { 
-            max-width: 600px; 
-            margin: 50px auto; 
+            width: 500px; 
+            margin: 50px; 
             padding: 20px; 
-            background: #fff; 
+            background: rgba(252, 193, 193, 0.39);
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); 
             border-radius: 8px; 
-            transition: transform 0.5s ease-in-out; 
+            transition: transform 1s ease-in-out, width 1s ease-in-out; 
         }
         .form-group { 
             margin-bottom: 15px; 
@@ -58,8 +62,19 @@
         .hidden { 
             transform: translateX(-100%); 
         }
-        canvas { 
-            margin-top: 20px; 
+        .expand { 
+            width: 300px; 
+        }
+        .graph-container {
+            display: none;
+            width: 800px;
+            margin-left: 20px;
+        }
+        .visible {
+            display: block;
+        }
+        canvas {
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -94,14 +109,19 @@
             <input type="number" id="train_split" step="0.01" value="0.8">
         </div>
         <button onclick="trainModel()">Train Model</button>
+        <button onclick="stopTraining()">Stop Training</button>
         <div class="results" id="results"></div>
     </div>
-    <canvas id="accuracyChart" width="400" height="200"></canvas>
+    <div class="graph-container" id="graph-container">
+        <canvas id="accuracyChart" width="400" height="200"></canvas>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         async function trainModel() {
             const formContainer = document.getElementById('form-container');
-            formContainer.classList.add('hidden');
+            const graphContainer = document.getElementById('graph-container');
+            formContainer.classList.add('expand');
+            graphContainer.classList.add('visible');
 
             const learningRate = document.getElementById('learning_rate').value;
             const activation = document.getElementById('activation').value;
@@ -124,9 +144,9 @@
             if (response.ok) {
                 const result = await response.json();
                 document.getElementById('results').innerHTML = `
-                    <h2>Training Results</h2>
-                    <p>Accuracy: ${result.accuracy}</p>
-                    <p>Validation Accuracy: ${result.val_accuracy}</p>
+                    <h2>Latest Training Results</h2>
+                    <p>Accuracy: ${result.latest_accuracy}</p>
+                    <p>Validation Accuracy: ${result.latest_val_accuracy}</p>
                 `;
 
                 const ctx = document.getElementById('accuracyChart').getContext('2d');
@@ -161,8 +181,19 @@
             } else {
                 console.error('Error:', response.statusText);
             }
+        }
 
-            formContainer.classList.remove('hidden');
+        async function stopTraining() {
+            const response = await fetch('/stop', {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log(result.status);
+            } else {
+                console.error('Error:', response.statusText);
+            }
         }
     </script>
 </body>
