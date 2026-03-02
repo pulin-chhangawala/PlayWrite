@@ -538,12 +538,12 @@ body {
     border-radius: var(--radius-sm);
     padding: 12px;
     position: relative;
-    max-height: 280px;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .viz-section canvas {
-    max-height: 180px !important;
+    max-height: 200px !important;
 }
 
 .viz-section .viz-title {
@@ -604,7 +604,6 @@ body {
 
 .mean-image-card canvas {
     width: 100%;
-    image-rendering: pixelated;
     border-radius: 4px;
 }
 
@@ -721,7 +720,6 @@ body {
 
 .sample-card canvas {
     width: 100%;
-    image-rendering: pixelated;
     border-radius: 4px;
     margin-bottom: 3px;
 }
