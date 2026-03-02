@@ -537,6 +537,13 @@ body {
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     padding: 12px;
+    position: relative;
+    max-height: 280px;
+    overflow: hidden;
+}
+
+.viz-section canvas {
+    max-height: 180px !important;
 }
 
 .viz-section .viz-title {

@@ -135,16 +135,21 @@ function renderVisualization(data) {
 }
 
 function renderClassDistribution(data) {
-    const canvas = document.getElementById('class-dist-chart');
-    if (!canvas) return;
+    if (state.charts.classDist) { state.charts.classDist.destroy(); state.charts.classDist = null; }
 
-    if (state.charts.classDist) state.charts.classDist.destroy();
+    // replace the canvas entirely to reset Chart.js sizing
+    const container = document.getElementById('class-dist-chart').parentElement;
+    const oldCanvas = document.getElementById('class-dist-chart');
+    const newCanvas = document.createElement('canvas');
+    newCanvas.id = 'class-dist-chart';
+    newCanvas.style.height = '180px';
+    oldCanvas.replaceWith(newCanvas);
 
     const labels = data.class_distribution.map(c => c.label);
     const counts = data.class_distribution.map(c => c.count);
     const colors = labels.map((_, i) => CLASS_COLORS[i % CLASS_COLORS.length]);
 
-    state.charts.classDist = new Chart(canvas.getContext('2d'), {
+    state.charts.classDist = new Chart(newCanvas.getContext('2d'), {
         type: 'bar',
         data: {
             labels: labels,
