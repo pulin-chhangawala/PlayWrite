@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>playwrite | neural network playground</title>
-    <meta name="description" content="Interactive neural network playground. Train models on MNIST, Fashion-MNIST, CIFAR-10, or your own data with real-time visualizations.">
+    <meta name="description" content="Interactive neural network playground with real-time training visualization.">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -28,35 +28,32 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
 
-        <!-- Dataset Selection -->
+        <!-- Dataset -->
         <div class="card">
             <div class="card-title"><span class="icon">📊</span> Dataset</div>
-            <div class="dataset-grid" id="dataset-grid">
-                <!-- filled by JS -->
-            </div>
-            <div style="margin-top:8px">
+            <div class="dataset-grid" id="dataset-grid"></div>
+            <div style="margin-top:6px">
                 <label class="upload-area" id="upload-label">
                     ⬆ Upload CSV (last column = labels)
                     <input type="file" accept=".csv" onchange="handleFileUpload(this)">
                 </label>
             </div>
-            <div id="sample-preview" style="margin-top:8px;"></div>
         </div>
 
         <!-- Architecture -->
         <div class="card">
             <div class="card-title"><span class="icon">🏗️</span> Architecture</div>
             <div class="toggle-row">
-                <span>Use CNN layers</span>
+                <span>CNN feature extraction</span>
                 <label class="toggle">
                     <input type="checkbox" id="use_cnn">
                     <span class="slider"></span>
                 </label>
             </div>
-            <div style="margin-top:10px;">
-                <label style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;display:block;">Dense Layers</label>
+            <div style="margin-top:6px;">
+                <label style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px;display:block;">Dense Layers</label>
                 <div class="layer-list" id="layer-list"></div>
-                <button class="add-layer-btn" onclick="addLayer()" style="margin-top:6px;">+ Add Layer</button>
+                <button class="add-layer-btn" onclick="addLayer()" style="margin-top:4px;">+ Add Layer</button>
             </div>
         </div>
 
@@ -121,7 +118,7 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>Epochs</label>
-                    <input type="number" id="epochs" value="20" min="1" max="200" step="1">
+                    <input type="number" id="epochs" value="20" min="1" max="200">
                 </div>
                 <div class="form-group">
                     <label>Train Split</label>
@@ -135,21 +132,17 @@
             </div>
         </div>
 
-        <!-- Train Button -->
+        <!-- Buttons -->
         <div class="btn-group">
-            <button class="btn btn-primary" id="train-btn" onclick="startTraining()">
-                ▶ Train Model
-            </button>
-            <button class="btn btn-danger" id="stop-btn" onclick="stopTraining()" style="display:none;">
-                ⏹ Stop Training
-            </button>
+            <button class="btn btn-primary" id="train-btn" onclick="startTraining()">▶ Train Model</button>
+            <button class="btn btn-danger" id="stop-btn" onclick="stopTraining()" style="display:none;">⏹ Stop Training</button>
         </div>
 
         <!-- Model Summary -->
         <div class="card" id="model-summary-container" style="display:none;">
             <div class="card-title"><span class="icon">📋</span> Model Summary</div>
             <div class="model-summary" id="model-summary"></div>
-            <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted);">
+            <div style="margin-top:6px;font-size:0.7rem;color:var(--text-muted);">
                 Parameters: <strong id="param-count" style="color:var(--text-secondary);">0</strong>
             </div>
         </div>
@@ -159,11 +152,27 @@
     <!-- MAIN CONTENT -->
     <main class="main-content">
 
+        <!-- Dataset Visualization -->
+        <div class="viz-panel" id="viz-panel">
+            <div class="chart-title">📊 Dataset Explorer</div>
+            <div class="viz-description" id="viz-description"></div>
+            <div class="ds-badges" id="viz-badges"></div>
+            <div class="viz-grid">
+                <div class="viz-section">
+                    <div class="viz-title">Class Distribution</div>
+                    <canvas id="class-dist-chart" style="height:180px;"></canvas>
+                </div>
+                <div class="viz-section" id="viz-right">
+                    <!-- filled by JS: mean images or PCA scatter -->
+                </div>
+            </div>
+        </div>
+
         <!-- Progress Bar -->
         <div class="progress-container" id="progress-container">
             <div class="progress-header">
                 <span class="epoch-label" id="epoch-label">Epoch 0 / 0</span>
-                <span class="time-label" id="time-label">0s elapsed</span>
+                <span class="time-label" id="time-label">0s</span>
             </div>
             <div class="progress-bar-track">
                 <div class="progress-bar-fill" id="progress-fill"></div>
@@ -188,7 +197,7 @@
             </div>
         </div>
 
-        <!-- Charts -->
+        <!-- Training Charts -->
         <div class="charts-grid">
             <div class="chart-card">
                 <div class="chart-title">Accuracy</div>
@@ -218,12 +227,11 @@
             <div class="samples-content"></div>
         </div>
 
-        <!-- Empty State -->
+        <!-- Empty State (hidden once viz loads) -->
         <div class="empty-state" id="empty-state">
             <div class="icon">🧠</div>
-            <h2>Configure and train a model</h2>
-            <p>Select a dataset, build your architecture, tune hyperparameters, and click Train. 
-               Watch accuracy and loss update in real time, then explore the confusion matrix and sample predictions.</p>
+            <h2>Select a dataset to explore</h2>
+            <p>Pick a dataset from the sidebar to see its distribution and statistics. Then configure your model and hit Train.</p>
         </div>
 
     </main>

@@ -14,6 +14,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Dropout, Conv2D, MaxPooling2D, Reshape
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad
 from sklearn.metrics import confusion_matrix
+from sklearn.decomposition import PCA
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 
@@ -31,14 +32,16 @@ current_results = {}
 DATASETS = {}
 
 def load_datasets():
-    """Lazily load datasets on first request to avoid slow startup."""
+    """Load all built-in datasets (lazy, called on first request)."""
     global DATASETS
     if DATASETS:
         return
 
     from tensorflow.keras.datasets import mnist, fashion_mnist, cifar10
+    from sklearn.datasets import load_iris, load_wine, load_breast_cancer, load_digits
 
-    # MNIST
+    # ── Image datasets ──────────────────────────────────────────────────
+
     (x_tr, y_tr), (x_te, y_te) = mnist.load_data()
     DATASETS['mnist'] = {
         'x_train': x_tr / 255.0,
@@ -48,11 +51,12 @@ def load_datasets():
         'input_shape': (28, 28),
         'num_classes': 10,
         'labels': [str(i) for i in range(10)],
-        'name': 'MNIST Handwritten Digits',
-        'channels': 1
+        'name': 'MNIST Digits',
+        'channels': 1,
+        'type': 'image',
+        'description': '70,000 handwritten digits (28x28 grayscale). The classic ML benchmark.'
     }
 
-    # Fashion-MNIST
     (x_tr, y_tr), (x_te, y_te) = fashion_mnist.load_data()
     DATASETS['fashion_mnist'] = {
         'x_train': x_tr / 255.0,
@@ -64,10 +68,11 @@ def load_datasets():
         'labels': ['T-shirt', 'Trouser', 'Pullover', 'Dress', 'Coat',
                    'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'],
         'name': 'Fashion-MNIST',
-        'channels': 1
+        'channels': 1,
+        'type': 'image',
+        'description': '70,000 clothing images across 10 categories. Harder than MNIST.'
     }
 
-    # CIFAR-10
     (x_tr, y_tr), (x_te, y_te) = cifar10.load_data()
     y_tr, y_te = y_tr.flatten(), y_te.flatten()
     DATASETS['cifar10'] = {
@@ -77,11 +82,80 @@ def load_datasets():
         'y_test': y_te,
         'input_shape': (32, 32, 3),
         'num_classes': 10,
-        'labels': ['Airplane', 'Automobile', 'Bird', 'Cat', 'Deer',
+        'labels': ['Airplane', 'Auto', 'Bird', 'Cat', 'Deer',
                    'Dog', 'Frog', 'Horse', 'Ship', 'Truck'],
         'name': 'CIFAR-10',
-        'channels': 3
+        'channels': 3,
+        'type': 'image',
+        'description': '60,000 color photos (32x32) across 10 categories. Needs CNN to do well.'
     }
+
+    # ── sklearn 8x8 digit images ─────────────────────────────────────────
+    dig = load_digits()
+    X_dig = dig.data / 16.0
+    y_dig = dig.target
+    split = int(len(X_dig) * 0.8)
+    idx = np.random.RandomState(42).permutation(len(X_dig))
+    X_dig, y_dig = X_dig[idx], y_dig[idx]
+    DATASETS['digits'] = {
+        'x_train': X_dig[:split].reshape(-1, 8, 8),
+        'y_train': y_dig[:split],
+        'x_test': X_dig[split:].reshape(-1, 8, 8),
+        'y_test': y_dig[split:],
+        'input_shape': (8, 8),
+        'num_classes': 10,
+        'labels': [str(i) for i in range(10)],
+        'name': 'Digits (8x8)',
+        'channels': 1,
+        'type': 'image',
+        'description': '1,797 tiny digit images (8x8 grayscale). Fast to train, good for quick experiments.'
+    }
+
+    # ── Tabular datasets ─────────────────────────────────────────────────
+
+    def make_tabular(loader, name, desc, labels=None):
+        ds = loader()
+        X = ds.data.astype(np.float32)
+        y = ds.target.astype(np.int32)
+        # normalize
+        mu, sigma = X.mean(axis=0), X.std(axis=0) + 1e-8
+        X = (X - mu) / sigma
+        # split
+        rng = np.random.RandomState(42)
+        idx = rng.permutation(len(X))
+        X, y = X[idx], y[idx]
+        split = int(len(X) * 0.8)
+        lbl = labels if labels else [str(i) for i in range(len(np.unique(y)))]
+        return {
+            'x_train': X[:split], 'y_train': y[:split],
+            'x_test': X[split:], 'y_test': y[split:],
+            'input_shape': (X.shape[1],),
+            'num_classes': len(np.unique(y)),
+            'labels': lbl,
+            'name': name,
+            'channels': 0,
+            'type': 'tabular',
+            'description': desc,
+            'feature_names': list(ds.feature_names) if hasattr(ds, 'feature_names') else [f'f{i}' for i in range(X.shape[1])]
+        }
+
+    DATASETS['iris'] = make_tabular(
+        load_iris, 'Iris Flowers',
+        '150 samples, 4 features (sepal/petal length+width), 3 species. The original ML dataset.',
+        ['Setosa', 'Versicolor', 'Virginica']
+    )
+
+    DATASETS['wine'] = make_tabular(
+        load_wine, 'Wine Quality',
+        '178 wines, 13 chemical features (alcohol, malic acid, etc.), 3 quality classes.',
+        ['Class 0', 'Class 1', 'Class 2']
+    )
+
+    DATASETS['breast_cancer'] = make_tabular(
+        load_breast_cancer, 'Breast Cancer',
+        '569 tumors, 30 features (radius, texture, etc.), 2 classes (malignant/benign).',
+        ['Malignant', 'Benign']
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -107,18 +181,15 @@ def get_optimizer(name, lr):
 
 def build_model(input_shape, num_classes, layers_config, activation,
                 regularization, reg_rate, dropout, use_cnn=False):
-    """Build a model from the layer configuration list."""
+    """Build a model from the layer configuration."""
     model = Sequential()
     reg = get_regularizer(regularization, reg_rate)
 
     if use_cnn and len(input_shape) >= 2:
-        # add channel dim if needed
         if len(input_shape) == 2:
             model.add(Reshape((*input_shape, 1), input_shape=input_shape))
-            cnn_input = (*input_shape, 1)
         else:
-            cnn_input = input_shape
-            model.add(tf.keras.layers.InputLayer(input_shape=cnn_input))
+            model.add(tf.keras.layers.InputLayer(input_shape=input_shape))
 
         model.add(Conv2D(32, (3, 3), activation=activation, padding='same',
                          kernel_regularizer=reg))
@@ -130,14 +201,12 @@ def build_model(input_shape, num_classes, layers_config, activation,
     else:
         model.add(Flatten(input_shape=input_shape))
 
-    # dense layers from user config
     for neurons in layers_config:
         model.add(Dense(neurons, activation=activation, kernel_regularizer=reg))
         if dropout > 0:
             model.add(Dropout(dropout))
 
     model.add(Dense(num_classes, activation='softmax'))
-
     return model
 
 
@@ -162,14 +231,17 @@ def list_datasets():
             'labels': ds['labels'],
             'train_size': len(ds['x_train']),
             'test_size': len(ds['x_test']),
-            'channels': ds['channels']
+            'channels': ds['channels'],
+            'type': ds.get('type', 'image'),
+            'description': ds.get('description', ''),
+            'feature_names': ds.get('feature_names', [])
         }
     return jsonify(info)
 
 
 @app.route('/api/dataset/samples', methods=['POST'])
 def dataset_samples():
-    """Return sample images from a dataset for preview."""
+    """Return sample images/data from a dataset for preview."""
     load_datasets()
     data = request.json
     ds_key = data.get('dataset', 'mnist')
@@ -178,7 +250,8 @@ def dataset_samples():
         return jsonify({'error': 'Unknown dataset'}), 400
 
     ds = DATASETS[ds_key]
-    indices = np.random.choice(len(ds['x_test']), size=min(16, len(ds['x_test'])), replace=False)
+    n_samples = min(16, len(ds['x_test']))
+    indices = np.random.choice(len(ds['x_test']), size=n_samples, replace=False)
     samples = []
     for idx in indices:
         img = ds['x_test'][idx]
@@ -191,8 +264,93 @@ def dataset_samples():
     return jsonify({
         'samples': samples,
         'shape': list(ds['input_shape']),
-        'channels': ds['channels']
+        'channels': ds['channels'],
+        'type': ds.get('type', 'image')
     })
+
+
+@app.route('/api/dataset/visualize', methods=['POST'])
+def dataset_visualize():
+    """Return dataset statistics and visualization data."""
+    load_datasets()
+    data = request.json
+    ds_key = data.get('dataset', 'mnist')
+
+    if ds_key not in DATASETS:
+        return jsonify({'error': 'Unknown dataset'}), 400
+
+    ds = DATASETS[ds_key]
+    x_all = np.concatenate([ds['x_train'], ds['x_test']])
+    y_all = np.concatenate([ds['y_train'], ds['y_test']])
+
+    # class distribution
+    unique, counts = np.unique(y_all, return_counts=True)
+    class_dist = [{'label': ds['labels'][int(u)], 'count': int(c)}
+                  for u, c in zip(unique, counts)]
+
+    result = {
+        'class_distribution': class_dist,
+        'total_samples': len(x_all),
+        'train_size': len(ds['x_train']),
+        'test_size': len(ds['x_test']),
+        'input_shape': list(ds['input_shape']),
+        'num_classes': ds['num_classes'],
+        'type': ds.get('type', 'image'),
+        'description': ds.get('description', ''),
+        'feature_names': ds.get('feature_names', [])
+    }
+
+    # for tabular data: feature statistics + PCA 2D projection
+    if ds.get('type') == 'tabular':
+        x_flat = x_all.reshape(len(x_all), -1)
+        feat_names = ds.get('feature_names', [f'f{i}' for i in range(x_flat.shape[1])])
+
+        # feature stats
+        stats = []
+        for i in range(min(x_flat.shape[1], 30)):
+            col = x_flat[:, i]
+            stats.append({
+                'name': feat_names[i] if i < len(feat_names) else f'f{i}',
+                'mean': round(float(col.mean()), 3),
+                'std': round(float(col.std()), 3),
+                'min': round(float(col.min()), 3),
+                'max': round(float(col.max()), 3)
+            })
+        result['feature_stats'] = stats
+
+        # PCA 2D scatter for visualization
+        if x_flat.shape[1] >= 2:
+            pca = PCA(n_components=2)
+            coords = pca.fit_transform(x_flat)
+            # subsample for performance
+            n_vis = min(500, len(coords))
+            vis_idx = np.random.choice(len(coords), n_vis, replace=False)
+            scatter = []
+            for i in vis_idx:
+                scatter.append({
+                    'x': round(float(coords[i, 0]), 4),
+                    'y': round(float(coords[i, 1]), 4),
+                    'label': int(y_all[i]),
+                    'label_name': ds['labels'][int(y_all[i])]
+                })
+            result['pca_scatter'] = scatter
+            result['pca_variance'] = [round(float(v), 4) for v in pca.explained_variance_ratio_]
+
+    # for image data: pixel mean heatmap
+    elif ds.get('type') == 'image':
+        # per-class mean images
+        class_means = []
+        for c in range(ds['num_classes']):
+            mask = y_all == c
+            if mask.sum() > 0:
+                mean_img = x_all[mask].mean(axis=0)
+                class_means.append({
+                    'label': ds['labels'][c],
+                    'pixels': mean_img.tolist()
+                })
+        result['class_means'] = class_means
+
+    return jsonify(result)
 
 
 @app.route('/api/upload', methods=['POST'])
@@ -209,24 +367,30 @@ def upload_dataset():
     if len(rows) < 10:
         return jsonify({'error': 'Need at least 10 rows'}), 400
 
-    # skip header if first row is non-numeric
+    # detect header
     try:
         float(rows[0][0])
         header = None
+        feature_names = [f'feature_{i}' for i in range(len(rows[0]) - 1)]
     except ValueError:
         header = rows[0]
+        feature_names = header[:-1]
         rows = rows[1:]
 
     data_arr = np.array(rows, dtype=float)
-    X = data_arr[:, :-1]
-    y = data_arr[:, -1].astype(int)
+    X = data_arr[:, :-1].astype(np.float32)
+    y = data_arr[:, -1].astype(np.int32)
+
+    # normalize
+    mu, sigma = X.mean(axis=0), X.std(axis=0) + 1e-8
+    X = (X - mu) / sigma
 
     num_classes = len(np.unique(y))
     input_shape = (X.shape[1],)
 
-    # 80/20 split
     split = int(len(X) * 0.8)
-    indices = np.random.permutation(len(X))
+    rng = np.random.RandomState(42)
+    indices = rng.permutation(len(X))
     X, y = X[indices], y[indices]
 
     DATASETS['custom'] = {
@@ -238,7 +402,10 @@ def upload_dataset():
         'num_classes': num_classes,
         'labels': [str(i) for i in range(num_classes)],
         'name': f'Custom ({file.filename})',
-        'channels': 0
+        'channels': 0,
+        'type': 'tabular',
+        'description': f'Uploaded file: {file.filename}. {len(X)} samples, {X.shape[1]} features, {num_classes} classes.',
+        'feature_names': feature_names
     }
 
     return jsonify({
@@ -280,7 +447,6 @@ def train_model():
     layers_config = data.get('layers', [128, 64])
     use_cnn = data.get('use_cnn', False)
 
-    # split training data into train/val
     split_idx = int(len(ds['x_train']) * train_split)
     x_tr = ds['x_train'][:split_idx]
     y_tr = ds['y_train'][:split_idx]
@@ -299,7 +465,6 @@ def train_model():
         metrics=['accuracy']
     )
 
-    # model summary
     summary_lines = []
     model.summary(print_fn=lambda x: summary_lines.append(x))
     total_params = model.count_params()
@@ -314,7 +479,6 @@ def train_model():
     def generate():
         global stop_training, is_training, current_results
 
-        # send model info first
         yield f"data: {json.dumps({'type': 'model_info', 'summary': summary_lines, 'total_params': total_params, 'total_epochs': epochs})}\n\n"
 
         try:
@@ -358,15 +522,14 @@ def train_model():
                 }
                 yield f"data: {json.dumps(epoch_data)}\n\n"
 
-            # final evaluation on test set
+            # final test evaluation
             test_loss, test_acc = model.evaluate(x_test, y_test, verbose=0)
             y_pred = model.predict(x_test, verbose=0)
             y_pred_classes = np.argmax(y_pred, axis=1)
 
-            # confusion matrix
             cm = confusion_matrix(y_test, y_pred_classes).tolist()
 
-            # sample predictions (16 random)
+            # sample predictions
             sample_indices = np.random.choice(len(x_test), size=min(16, len(x_test)), replace=False)
             samples = []
             for idx in sample_indices:
