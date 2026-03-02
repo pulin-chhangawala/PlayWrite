@@ -496,8 +496,6 @@ body {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 14px;
-    min-height: 260px;
-    overflow: hidden;
 }
 
 .chart-card canvas { max-height: 230px; }
