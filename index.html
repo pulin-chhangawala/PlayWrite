@@ -3,198 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MNIST Model Trainer</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            background-color: white; 
-            color: #333; 
-            margin: 0; 
-            padding: 0; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center;
-            height: 100vh; 
-        }
-        .container { 
-            width: 500px; 
-            margin: 50px; 
-            padding: 20px; 
-            background: rgba(252, 193, 193, 0.39);
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); 
-            border-radius: 8px; 
-            transition: transform 1s ease-in-out, width 1s ease-in-out; 
-        }
-        .form-group { 
-            margin-bottom: 15px; 
-        }
-        label { 
-            display: block; 
-            margin-bottom: 5px; 
-            font-weight: bold; 
-        }
-        input, select { 
-            width: 100%; 
-            padding: 10px; 
-            margin-top: 5px; 
-            border: 1px solid #ccc; 
-            border-radius: 4px; 
-            box-sizing: border-box; 
-        }
-        button { 
-            padding: 10px 20px; 
-            background-color: #007bff; 
-            color: #fff; 
-            border: none; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            font-size: 16px; 
-        }
-        button:hover { 
-            background-color: #0056b3; 
-        }
-        .results { 
-            margin-top: 20px; 
-            padding: 10px; 
-            background: #e9ecef; 
-            border-radius: 4px; 
-        }
-        .hidden { 
-            transform: translateX(-100%); 
-        }
-        .expand { 
-            width: 300px; 
-        }
-        .graph-container {
-            display: none;
-            width: 800px;
-            margin-left: 20px;
-        }
-        .visible {
-            display: block;
-        }
-        canvas {
-            margin-top: 20px;
-        }
-    </style>
+    <title>playwrite | neural network playground</title>
+    <meta name="description" content="Interactive neural network playground. Train models on MNIST, Fashion-MNIST, CIFAR-10, or your own data with real-time visualizations.">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="container" id="form-container">
-        <h1>Train MNIST Model</h1>
-        <div class="form-group">
-            <label for="learning_rate">Learning Rate</label>
-            <input type="number" id="learning_rate" step="0.001" value="0.001">
+
+<div class="app">
+
+    <!-- HEADER -->
+    <header class="header">
+        <div>
+            <h1>playwrite</h1>
+            <span class="subtitle">neural network playground</span>
         </div>
-        <div class="form-group">
-            <label for="activation">Activation Function</label>
-            <select id="activation">
-                <option value="relu">ReLU</option>
-                <option value="sigmoid">Sigmoid</option>
-                <option value="tanh">Tanh</option>
-            </select>
+        <div class="header-right">
+            <div class="status-indicator">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="status-text">Ready</span>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="regularization">Regularization</label>
-            <select id="regularization">
-                <option value="l2">L2</option>
-                <option value="l1">L1</option>
-            </select>
+    </header>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+        <!-- Dataset Selection -->
+        <div class="card">
+            <div class="card-title"><span class="icon">📊</span> Dataset</div>
+            <div class="dataset-grid" id="dataset-grid">
+                <!-- filled by JS -->
+            </div>
+            <div style="margin-top:8px">
+                <label class="upload-area" id="upload-label">
+                    ⬆ Upload CSV (last column = labels)
+                    <input type="file" accept=".csv" onchange="handleFileUpload(this)">
+                </label>
+            </div>
+            <div id="sample-preview" style="margin-top:8px;"></div>
         </div>
-        <div class="form-group">
-            <label for="reg_rate">Regularization Rate</label>
-            <input type="number" id="reg_rate" step="0.001" value="0.01">
+
+        <!-- Architecture -->
+        <div class="card">
+            <div class="card-title"><span class="icon">🏗️</span> Architecture</div>
+            <div class="toggle-row">
+                <span>Use CNN layers</span>
+                <label class="toggle">
+                    <input type="checkbox" id="use_cnn">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div style="margin-top:10px;">
+                <label style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;display:block;">Dense Layers</label>
+                <div class="layer-list" id="layer-list"></div>
+                <button class="add-layer-btn" onclick="addLayer()" style="margin-top:6px;">+ Add Layer</button>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="train_split">Training Data Split (%)</label>
-            <input type="number" id="train_split" step="0.01" value="0.8">
+
+        <!-- Hyperparameters -->
+        <div class="card">
+            <div class="card-title"><span class="icon">⚙️</span> Hyperparameters</div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Learning Rate</label>
+                    <input type="number" id="learning_rate" value="0.001" step="0.0001" min="0.00001" max="1">
+                </div>
+                <div class="form-group">
+                    <label>Optimizer</label>
+                    <select id="optimizer">
+                        <option value="adam">Adam</option>
+                        <option value="sgd">SGD</option>
+                        <option value="rmsprop">RMSprop</option>
+                        <option value="adagrad">Adagrad</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Activation</label>
+                    <select id="activation">
+                        <option value="relu">ReLU</option>
+                        <option value="sigmoid">Sigmoid</option>
+                        <option value="tanh">Tanh</option>
+                        <option value="elu">ELU</option>
+                        <option value="selu">SELU</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Batch Size</label>
+                    <select id="batch_size">
+                        <option value="16">16</option>
+                        <option value="32" selected>32</option>
+                        <option value="64">64</option>
+                        <option value="128">128</option>
+                        <option value="256">256</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Regularization</label>
+                    <select id="regularization">
+                        <option value="none">None</option>
+                        <option value="l1">L1</option>
+                        <option value="l2">L2</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Reg. Rate</label>
+                    <input type="number" id="reg_rate" value="0.01" step="0.001" min="0" max="1">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Epochs</label>
+                    <input type="number" id="epochs" value="20" min="1" max="200" step="1">
+                </div>
+                <div class="form-group">
+                    <label>Train Split</label>
+                    <input type="number" id="train_split" value="0.8" step="0.05" min="0.1" max="0.95">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Dropout: <span id="dropout_val">0.0</span></label>
+                <input type="range" id="dropout" min="0" max="0.5" step="0.05" value="0">
+            </div>
         </div>
-        <button onclick="trainModel()">Train Model</button>
-        <button onclick="stopTraining()">Stop Training</button>
-        <div class="results" id="results"></div>
-    </div>
-    <div class="graph-container" id="graph-container">
-        <canvas id="accuracyChart" width="400" height="200"></canvas>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        async function trainModel() {
-            const formContainer = document.getElementById('form-container');
-            const graphContainer = document.getElementById('graph-container');
-            formContainer.classList.add('expand');
-            graphContainer.classList.add('visible');
 
-            const learningRate = document.getElementById('learning_rate').value;
-            const activation = document.getElementById('activation').value;
-            const regularization = document.getElementById('regularization').value;
-            const regRate = document.getElementById('reg_rate').value;
-            const trainSplit = document.getElementById('train_split').value;
+        <!-- Train Button -->
+        <div class="btn-group">
+            <button class="btn btn-primary" id="train-btn" onclick="startTraining()">
+                ▶ Train Model
+            </button>
+            <button class="btn btn-danger" id="stop-btn" onclick="stopTraining()" style="display:none;">
+                ⏹ Stop Training
+            </button>
+        </div>
 
-            const response = await fetch('/train', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    learning_rate: parseFloat(learningRate),
-                    activation: activation,
-                    regularization: regularization,
-                    reg_rate: parseFloat(regRate),
-                    train_split: parseFloat(trainSplit)
-                })
-            });
+        <!-- Model Summary -->
+        <div class="card" id="model-summary-container" style="display:none;">
+            <div class="card-title"><span class="icon">📋</span> Model Summary</div>
+            <div class="model-summary" id="model-summary"></div>
+            <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted);">
+                Parameters: <strong id="param-count" style="color:var(--text-secondary);">0</strong>
+            </div>
+        </div>
 
-            if (response.ok) {
-                const result = await response.json();
-                document.getElementById('results').innerHTML = `
-                    <h2>Latest Training Results</h2>
-                    <p>Accuracy: ${result.latest_accuracy}</p>
-                    <p>Validation Accuracy: ${result.latest_val_accuracy}</p>
-                `;
+    </aside>
 
-                const ctx = document.getElementById('accuracyChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: Array.from({ length: result.accuracy.length }, (_, i) => i + 1),
-                        datasets: [
-                            {
-                                label: 'Training Accuracy',
-                                data: result.accuracy,
-                                borderColor: 'rgba(75, 192, 192, 1)',
-                                borderWidth: 1,
-                                fill: false
-                            },
-                            {
-                                label: 'Validation Accuracy',
-                                data: result.val_accuracy,
-                                borderColor: 'rgba(153, 102, 255, 1)',
-                                borderWidth: 1,
-                                fill: false
-                            }
-                        ]
-                    },
-                    options: {
-                        scales: {
-                            x: { title: { display: true, text: 'Epoch' } },
-                            y: { title: { display: true, text: 'Accuracy' } }
-                        }
-                    }
-                });
-            } else {
-                console.error('Error:', response.statusText);
-            }
-        }
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
 
-        async function stopTraining() {
-            const response = await fetch('/stop', {
-                method: 'POST'
-            });
+        <!-- Progress Bar -->
+        <div class="progress-container" id="progress-container">
+            <div class="progress-header">
+                <span class="epoch-label" id="epoch-label">Epoch 0 / 0</span>
+                <span class="time-label" id="time-label">0s elapsed</span>
+            </div>
+            <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-accuracy">--</div>
+                    <div class="stat-label">Train Acc</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-val-accuracy">--</div>
+                    <div class="stat-label">Val Acc</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-loss">--</div>
+                    <div class="stat-label">Loss</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-best">--</div>
+                    <div class="stat-label">Best Val</div>
+                </div>
+            </div>
+        </div>
 
-            if (response.ok) {
-                const result = await response.json();
-                console.log(result.status);
-            } else {
-                console.error('Error:', response.statusText);
-            }
-        }
-    </script>
+        <!-- Charts -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <div class="chart-title">Accuracy</div>
+                <canvas id="accuracy-chart"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Loss</div>
+                <canvas id="loss-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Confusion Matrix -->
+        <div class="chart-card" id="confusion-container" style="display:none;">
+            <div class="chart-title">Confusion Matrix</div>
+            <div class="confusion-content"></div>
+        </div>
+
+        <!-- Per-Class Accuracy -->
+        <div class="chart-card" id="class-acc-container" style="display:none;">
+            <div class="chart-title">Per-Class Accuracy</div>
+            <div class="class-acc-content"></div>
+        </div>
+
+        <!-- Sample Predictions -->
+        <div class="chart-card" id="samples-container" style="display:none;">
+            <div class="chart-title">Sample Predictions</div>
+            <div class="samples-content"></div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="empty-state">
+            <div class="icon">🧠</div>
+            <h2>Configure and train a model</h2>
+            <p>Select a dataset, build your architecture, tune hyperparameters, and click Train. 
+               Watch accuracy and loss update in real time, then explore the confusion matrix and sample predictions.</p>
+        </div>
+
+    </main>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="/static/app.js"></script>
+
 </body>
 </html>
