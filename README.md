@@ -79,7 +79,7 @@ Upload any CSV file where the **last column contains the labels**. The app norma
 - Activation function: ReLU, Sigmoid, Tanh, ELU, or SELU
 - Regularization: None, L1, or L2 (with adjustable strength)
 - Batch size: 16, 32, 64, 128, or 256
-- Epochs: 1 to 200
+- Epochs: 1 to 1,000
 - Train/validation split ratio: 10% to 95%
 
 ---
